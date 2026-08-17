@@ -34,7 +34,7 @@ sg video -c './target/debug/thermal-camera frames=1 out=/tmp/tc'
 ## 用法
 
 ```
-thermal-camera [frames=N] [out=DIR] [point=X,Y]... [roi=X,Y,W,H]... [temps=FILE]
+thermal-camera [frames=N] [out=DIR] [point=X,Y]... [roi=X,Y,W,H]... [temps=FILE] [comp=on]
 ```
 
 - `frames`/`out`：从视频流抓 N 张 240×320 JPEG（带 OSD）到 DIR
@@ -42,6 +42,8 @@ thermal-camera [frames=N] [out=DIR] [point=X,Y]... [roi=X,Y,W,H]... [temps=FILE]
 - `point=X,Y`：查单个像素的温度，坐标为 240×320 显示坐标（可多个）
 - `roi=X,Y,W,H`：查矩形区域最高温，同上坐标系（可多个）
 - `temps=FILE`：把 120×160 温度矩阵导出为 CSV
+- `comp=on`：保留设备的体温补偿（默认**关闭**：读数为真实表面温度，
+  退出时自动恢复设备原配置）
 
 测温类参数会触发一次 2046 辐射测量抓拍（约 1–2 秒）；温度矩阵坐标 ×2
 即显示坐标。
@@ -69,6 +71,8 @@ roi (0, 0, 240x320): max 40.4 C at display (192, 10)
 - `capture_radiometric()`：2046 命令，JPEG + 120×160 f32 温度矩阵
 - `roi_max_temperatures()` / `pixel_temperature()`：2047 ROI 测温
   （注意：对小热点有稀释，精确逐像素请用 2046）
+- `body_temp_compensation()` / `set_body_temp_compensation()`：2044/2045
+  体温补偿开关（CLI 默认运行时关闭、退出恢复）
 - `simple_get()` / `double_get()`：通用 XU 命令事务
 
 `src/bin/` 下的其余 binary 是协议探索期的诊断工具（XU 扫描、规则导出等）。

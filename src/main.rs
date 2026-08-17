@@ -2,12 +2,15 @@
 // TB-4117-3/S module (2bdf:0101).
 //
 // usage: thermal-camera [frames=N] [out=DIR] [point=X,Y]... [roi=X,Y,W,H]...
-//                        [temps=FILE]
+//                        [temps=FILE] [comp=on]
 //   frames/out: save N streaming JPEG frames (240x320, with OSD) into DIR
 //               (default: 3 frames into ./captures; frames=0 to skip)
 //   point:      temperature of a pixel, in 240x320 display coordinates
 //   roi:        max temperature of a rectangle, in 240x320 display coordinates
 //   temps:      also dump the full 120x160 temperature matrix as CSV
+//   comp:       body-temperature compensation — disabled by default (raw
+//               surface temperatures, restored on exit); pass comp=on to
+//               keep the device's screening-compensated readings
 //
 // Point/roi/temps use one 2046 radiometric capture (120x160 f32 °C matrix,
 // values identical to the device OSD). Display coords map by dividing by 2.
@@ -44,6 +47,7 @@ fn main() -> Result<()> {
     let mut points: Vec<(u32, u32)> = Vec::new();
     let mut rois: Vec<(u32, u32, u32, u32)> = Vec::new();
     let mut temps_file: Option<String> = None;
+    let mut comp_off = true;
     for arg in std::env::args().skip(1) {
         if let Some(v) = arg.strip_prefix("frames=") {
             frames_wanted = v.parse()?;
@@ -51,6 +55,12 @@ fn main() -> Result<()> {
             out_dir = v.to_string();
         } else if let Some(v) = arg.strip_prefix("temps=") {
             temps_file = Some(v.to_string());
+        } else if let Some(v) = arg.strip_prefix("comp=") {
+            match v {
+                "off" => comp_off = true,
+                "on" => comp_off = false,
+                _ => bail!("comp= expects on or off, got {v:?}"),
+            }
         } else if let Some(n) = parse_nums(&arg, "point=", 2)? {
             points.push((n[0], n[1]));
         } else if let Some(n) = parse_nums(&arg, "roi=", 4)? {
@@ -109,6 +119,21 @@ fn main() -> Result<()> {
         thread::sleep(Duration::from_millis(10));
     }
 
+    // Body-temperature compensation is disabled by default (raw surface
+    // temperatures); the device's original config is restored before exit.
+    let mut comp_orig: Option<Vec<u8>> = None;
+    if comp_off {
+        match dev.body_temp_compensation() {
+            Ok(orig) if orig.get(1) == Some(&1) => {
+                dev.set_body_temp_compensation(false)?;
+                println!("body-temp compensation: off (device config restored on exit)");
+                comp_orig = Some(orig);
+            }
+            Ok(_) => println!("body-temp compensation: already off"),
+            Err(e) => println!("body-temp compensation: query failed, leaving as-is ({e:#})"),
+        }
+    }
+
     let mut result = Ok(());
     if need_radiometric {
         result = run_queries(&dev, &points, &rois, temps_file.as_deref());
@@ -120,6 +145,11 @@ fn main() -> Result<()> {
             break;
         }
         thread::sleep(Duration::from_millis(100));
+    }
+    if let Some(orig) = comp_orig {
+        if let Err(e) = dev.restore_body_temp_compensation(&orig) {
+            eprintln!("warning: failed to restore compensation config: {e:#}");
+        }
     }
     stop.store(true, Ordering::Relaxed);
     let _ = pump.join();

@@ -321,6 +321,36 @@ impl Device {
         Ok(res.regions[0].temperature_c())
     }
 
+    /// Read the 2044 USB_BODYTEMP_COMPENSATION config (group 3 sub 8).
+    /// Returns the raw payload (18 bytes on TB-4117-3/S); byte 1 is
+    /// byEnabled, bytes 3..15 are live values the device recomputes.
+    pub fn body_temp_compensation(&self) -> Result<Vec<u8>> {
+        self.simple_get(3, 8)
+    }
+
+    /// Enable/disable body-temperature compensation (2045 SET, same sub).
+    /// Only byte 1 (byEnabled) is toggled; the rest of the current config is
+    /// written back unchanged.
+    pub fn set_body_temp_compensation(&self, enabled: bool) -> Result<()> {
+        let mut cfg = self.body_temp_compensation()?;
+        if cfg.len() < 2 {
+            bail!("unexpected 2044 payload: {cfg:?}");
+        }
+        cfg[0] = 1; // byChannelID
+        cfg[1] = enabled as u8;
+        self.select_command(3, 8)?;
+        self.xu_set(3, &cfg)?;
+        Ok(())
+    }
+
+    /// Restore a compensation payload previously read by
+    /// [`Device::body_temp_compensation`].
+    pub fn restore_body_temp_compensation(&self, original: &[u8]) -> Result<()> {
+        self.select_command(3, 8)?;
+        self.xu_set(3, original)?;
+        Ok(())
+    }
+
     /// Capture a JPEG plus the full-frame radiometric temperature matrix via
     /// the 2046 JPEGPIC_WITH_APPENDDATA command (group 3 sub 9, DoubleGet).
     ///
