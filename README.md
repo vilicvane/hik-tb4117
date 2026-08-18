@@ -13,8 +13,16 @@
 Windows 侧用 usbipd-win 转发（管理员 PowerShell，bind 只需一次）：
 
 ```powershell
-usbipd bind --busid 20-1 --force   # 一次性，持久化
-usbipd attach --wsl --busid 20-1   # 每次重插/重启后执行；免管理员
+usbipd bind --busid <BUSID> --force   # 一次性，持久化（绑定的是设备本身）
+```
+
+每次重插/重启后要重新 attach（免管理员）。**换 USB 口后 busid 会变**——
+可以不离开 WSL 直接操作：
+
+```bash
+USBIPD="/mnt/c/Program Files/usbipd-win/usbipd.exe"
+"$USBIPD" list | grep 2bdf            # 查出当前 busid（注意相机换口会变）
+"$USBIPD" attach --wsl --busid 19-1
 ```
 
 WSL 侧已配好 udev 规则（`/etc/udev/rules.d/99-hikcamera.rules`，
@@ -76,7 +84,9 @@ roi (0, 0, 240x320): max 40.4 C at display (192, 10)
   体温补偿开关（CLI 默认运行时关闭、退出恢复）
 - `simple_get()` / `double_get()`：通用 XU 命令事务
 
-`src/bin/` 下的其余 binary 是协议探索期的诊断工具（XU 扫描、规则导出等）。
+`src/bin/` 下的其余 binary 是协议探索期的诊断工具（XU 扫描、规则导出等），
+另有一个实用的 `record`：每分钟记录一组 OSD 帧 + 辐射原图 + 温度矩阵 CSV
+到 `captures/record/`（Ctrl+C 停止，退出时恢复设备补偿配置）。
 
 ## Credit
 
