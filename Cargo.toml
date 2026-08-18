@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 rusb = { version = "0.9", features = ["vendored"] }
 anyhow = "1"
+ctrlc = "3"

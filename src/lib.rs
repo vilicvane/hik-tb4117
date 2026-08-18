@@ -94,6 +94,32 @@ impl Device {
             &cur,
             DEFAULT_TIMEOUT,
         )?;
+
+        // Unlock the XU command channel (see version_probe docs).
+        self.version_probe()?;
+        Ok(())
+    }
+
+    /// Version probe (the SDK's DetectDeviceVersion): GET_LEN sel4 must return
+    /// 4, then GET_CUR sel4 returns "2.0\0".
+    ///
+    /// **Required once after each device (re)attach**: until this probe runs,
+    /// the XU command channel stays locked — sel5 SET is accepted silently but
+    /// the subsequent GET_LEN returns 0. (Found the hard way: after a replug,
+    /// all commands failed until the probe was issued.)
+    pub fn version_probe(&self) -> Result<()> {
+        let len = self
+            .xu_get_len(4)
+            .map_err(|e| anyhow::anyhow!("version probe GET_LEN failed: {e}"))?;
+        if len != 4 {
+            bail!("version probe: unexpected GET_LEN {len}");
+        }
+        let mut ver = [0u8; 4];
+        self.xu_get(4, &mut ver)
+            .map_err(|e| anyhow::anyhow!("version probe GET_CUR failed: {e}"))?;
+        if &ver != b"2.0\0" {
+            bail!("unsupported protocol version {ver:?}");
+        }
         Ok(())
     }
 

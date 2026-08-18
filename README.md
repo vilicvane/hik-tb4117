@@ -68,6 +68,7 @@ roi (0, 0, 240x320): max 40.4 C at display (192, 10)
 ## 库 API（`src/lib.rs`）
 
 - `Device::open()` / `start_stream()` / `frames()`：视频流
+  （`start_stream` 内含版本探测，重插后必须执行才能解锁 XU 命令通道）
 - `capture_radiometric()`：2046 命令，JPEG + 120×160 f32 温度矩阵
 - `roi_max_temperatures()` / `pixel_temperature()`：2047 ROI 测温
   （注意：对小热点有稀释，精确逐像素请用 2046）

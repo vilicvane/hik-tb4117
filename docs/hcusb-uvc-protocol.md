@@ -42,6 +42,11 @@
 3. 不匹配时走兼容路径：`SET_CUR sel3`（wValue=0x0300）发 2 字节 `{0x00, 0x05}`
    （含义未确定，推测为降级/切换协议版本）。
 
+**真机实测（TB-4117-3/S）：这个版本探测是解锁 XU 命令通道的必要步骤**。
+每次重新 attach/上电后，在未执行 GET_LEN+GET_CUR sel4 之前，sel5 的 SET 会被
+静默接受，但随后的 GET_LEN 一律返回 0（命令通道处于锁定状态）。只读
+GET_CUR sel4（跳过 GET_LEN）不解锁。视频流不受影响（帧照常输出）。
+
 ### selector 5 — 命令保持寄存器
 
 每个命令执行前 `SwitchCommand → HoldCommand`：SDK 缓存 `(wValue组, subFunction)`，
